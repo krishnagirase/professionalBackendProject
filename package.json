@@ -1,0 +1,17 @@
+{
+  "name": "proffesionalbackendproject",
+  "version": "1.0.0",
+  "description": "a backend at chai aur code channel -yt",
+  "keywords": [
+    "javascript",
+    "backend",
+    "chai"
+  ],
+  "license": "ISC",
+  "author": "Krishna Girase",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
