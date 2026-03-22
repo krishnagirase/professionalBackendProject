@@ -3,9 +3,9 @@ import fs from "fs"
 
 // Configuration
 cloudinary.config({ 
-    cloud_name: CLOUDINARY_CLOUD_NAME, 
-    api_key: CLOUDINARY_API_KEY, 
-    api_secret: CLOUDINARY_API_SECRET 
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+    api_key: process.env.CLOUDINARY_API_KEY, 
+    api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
 const uploadOnCloudinary = async (localfilepath) => {
@@ -18,6 +18,9 @@ const uploadOnCloudinary = async (localfilepath) => {
         //file has been uploaded successfully.
         console.log("file is uploaded on cloudinary", 
         response.url);
+        
+        fs.unlinkSync(localfilepath)
+
         return response;
     } catch(error){
         fs.unlinkSync(localfilepath)
@@ -25,3 +28,5 @@ const uploadOnCloudinary = async (localfilepath) => {
         return null;
     }
 }
+
+export {uploadOnCloudinary}

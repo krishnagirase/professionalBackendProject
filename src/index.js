@@ -1,3 +1,6 @@
+import { setServers } from 'dns';
+setServers(['8.8.8.8', '1.1.1.1']);
+
 import "dotenv/config";  
 import connectDB from "./db/index.js";
 import { app } from "./app.js";   
@@ -15,7 +18,7 @@ connectDB()
     });
   })
   .catch((error) => {
-    console.error("MongoDB connection failed:", error);
+    console.error("MongoDB connection failed error:", error);
     process.exit(1);
   });
 
