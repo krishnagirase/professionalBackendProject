@@ -20,8 +20,8 @@ const generateAccessandrefreshTokens = async(userId) => {
 
     }
     catch(error){
-         console.log("EXACT ERROR : ", error.message)  // ← add
-    console.log("FULL ERROR : ", error)     
+        console.log("EXACT ERROR : ", error.message) 
+        console.log("FULL ERROR : ", error)     
         throw new ApiError(500, "Something went wrong while generating access and refresh tokens")
     }
 } 
