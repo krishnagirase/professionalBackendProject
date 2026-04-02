@@ -185,6 +185,7 @@ const logoutUser = asyncHandler(async(req, res) => {
     .json(new ApiResponse(200, {}, "User logged Out"))
 })
 
+
 const refreshAccessToken = asyncHandler(async(req, res) => {
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
 
@@ -283,7 +284,7 @@ const updateAccountdetails = asyncHandler(async(req, res) => {
 
 
 const updateUseravatar = asyncHandler(async(req, res) => {
-    const avatarLocalPath = req.files?.avatar?.[0]?.path
+    const avatarLocalPath = req.file?.avatar?.[0]?.path
 
     if(!avatarLocalPath){
         throw new ApiError(400, "avatar file is missing")
@@ -312,7 +313,7 @@ const updateUseravatar = asyncHandler(async(req, res) => {
 
 
 const updateUserCoverImage = asyncHandler(async(req, res) => {
-    const coverImageLocalPath = req.files?.avatar?.[0]?.path
+    const coverImageLocalPath = req.file?.avatar?.[0]?.path
 
     if(!coverImageLocalPath){
         throw new ApiError(400, "CoverImage file is missing")
