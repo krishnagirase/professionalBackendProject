@@ -288,18 +288,26 @@ const updateAccountdetails = asyncHandler(async(req, res) => {
 
 
 const updateUseravatar = asyncHandler(async(req, res) => {
-    const avatarLocalPath = req.file?.avatar?.[0]?.path
+    const avatarLocalPath = req.file.path
 
     if(!avatarLocalPath){
         throw new ApiError(400, "avatar file is missing")
     }
 
-    // TODO delete old image
+    // get the old avatar public id from db before updating
+    const existingUSer = await User.findById(req?.user._id)
+    const oldAvatarUrl = existingUSer?.avatar.url
 
     const avatar = await uploadOnCloudinary(avatarLocalPath)
 
     if(!avatar.url){
         throw new ApiError(400, "Error while uploading file on Cloudinary")
+    }
+
+    // delete the oldAvatarfile from db
+    if (oldAvatarUrl) {
+        const publicId = oldAvatarUrl.split("/").pop().split(".")[0]  // extract public_id from URL
+        await cloudinary.uploader.destroy(publicId)
     }
 
     const user = await User.findByIdAndUpdate(
@@ -331,6 +339,10 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
         throw new ApiError(400, "Error while uploading file on Cloudinary")
     }
 
+    //extract the existing user oldcoverImageurl from db
+    const existingUSer = await User.findById(req?.user._id)
+    const oldcoverImageurl = existingUSer?.coverImage.url
+
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
@@ -341,10 +353,104 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
         {new : true}
     ).select("-Password")
 
+    //delete oldcoverImage from db
+    if (oldcoverImageurl) {
+        const publicId = oldcoverImageurl.split("/").pop().split(".")[0]  // extract public_id from URL
+        await cloudinary.uploader.destroy(publicId)
+    }
+
     return res
     .status(200)
     .json(new ApiResponse(200, user, "coverImage updated successfully"))
 })  
+
+
+const getUserChannelProfile = asyncHandler(async(req, res) => {
+    
+    //extract username from http link
+    const {username} = req.params
+
+    if(!username?.trim()){
+        throw new ApiError(400, "username is missing")
+    }
+
+    //aggregate the stages
+    const channel = await User.aggregate([
+        // stage 1: find the user whose channel is being visited. 
+        {
+            $match: {
+                username: username?.toLowerCase()
+            }
+        },
+        // stage 2 : get subscribers
+        {
+            $lookup: {
+                from: "subscriptions",      // go int subscriptions collection
+                localField: "_id",          // user _id
+                foreignField: "channel",    // matches where channel = user _id
+                as: "subscribers"           //store the result 
+            }
+        },
+        // stage 3 :  get subscribedTo
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        // stage 4 : add the extra info inside the user model.
+        {
+            $addFields: {
+                subscribersCount : {
+                    $size: "$subscribers"
+                },
+                subscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: {$in: [req.user._id, "$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        // stage 5 : Final Output ✅
+        {
+            $project: {
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                subscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+            }
+        }
+    ])
+
+    // 🚀 TODO — console.log(channel)
+    // ⭐ good to know
+    // aggregate always returns an array (channel is an array).
+    // channel[0] gives the whole info for that user decide by $project
+    // because here only one user now
+
+
+    if(!channel?.length){
+        throw new ApiError(404, "channel does not exists")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, channel[0], "user fetched successfully")
+    )
+})
+
 
 
 
