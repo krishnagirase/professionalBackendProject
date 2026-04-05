@@ -367,7 +367,7 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
 
 const getUserChannelProfile = asyncHandler(async(req, res) => {
     
-    //extract username from http link
+    //extract username from http url
     const {username} = req.params
 
     if(!username?.trim()){
@@ -385,7 +385,7 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
         // stage 2 : get subscribers
         {
             $lookup: {
-                from: "subscriptions",      // go int subscriptions collection
+                from: "subscriptions",      // go into subscriptions collection
                 localField: "_id",          // user _id
                 foreignField: "channel",    // matches where channel = user _id
                 as: "subscribers"           //store the result 
@@ -403,17 +403,22 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
         // stage 4 : add the extra info inside the user model.
         {
             $addFields: {
+                // Count subscribers array length
                 subscribersCount : {
                     $size: "$subscribers"
-                },
+                }, 
+                // Count subscribedTo array length
                 subscribedToCount: {
                     $size: "$subscribedTo"
                 },
+                // Check if (logged in user) has subscribed the visited channel
                 isSubscribed: {
                     $cond: {
                         if: {$in: [req.user._id, "$subscribers.subscriber"]},
-                        then: true,
-                        else: false
+                        // "$subscribers.subscriber" extracts all id's from subscriber array
+                        // checks is user's id in that list
+                        then: true,     // show Subscribed Button
+                        else: false     // show Subscribe Button
                     }
                 }
             }
@@ -423,12 +428,12 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
             $project: {
                 fullName: 1,
                 username: 1,
-                subscribersCount: 1,
-                subscribedToCount: 1,
-                isSubscribed: 1,
+                email : 1,
                 avatar: 1,
                 coverImage: 1,
-                email: 1
+                subscribersCount: 1,
+                subscribedToCount: 1,
+                isSubscribed: 1
             }
         }
     ])
@@ -436,7 +441,7 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
     // 🚀 TODO — console.log(channel)
     // ⭐ good to know
     // aggregate always returns an array (channel is an array).
-    // channel[0] gives the whole info for that user decide by $project
+    // channel[0] gives the whole info($project) profile for that user.
     // because here only one user now
 
 
@@ -449,6 +454,9 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
     .json(
         new ApiResponse(200, channel[0], "user fetched successfully")
     )
+
+    // channel[0] — unwrap from array, send only visited object
+    // frontend receives clean single object — not an array
 })
 
 
