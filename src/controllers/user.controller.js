@@ -6,6 +6,7 @@ import { ApiResponse } from "../utils/ApiResponse.js"
 import validator from "validator"
 import jwt from "jsonwebtoken"
 import { upload } from "../middlewares/multer.middleware.js"
+import mongoose from "mongoose"
 
 const generateAccessandrefreshTokens = async(userId) => {
     try{
@@ -407,6 +408,14 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
                 subscribersCount : {
                     $size: "$subscribers"
                 }, 
+                recentSubscribers: {
+                    //filters out the subscribers subscribed after certin date.
+                    $filter: {
+                        input: "subscribers",
+                        as: "sub",
+                        cond: {$gt: ["$$sub.createdAt", new Date("2026-01-01")]}
+                    }
+                },
                 // Count subscribedTo array length
                 subscribedToCount: {
                     $size: "$subscribedTo"
@@ -440,9 +449,17 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
 
     // 🚀 TODO — console.log(channel)
     // ⭐ good to know
-    // aggregate always returns an array (channel is an array).
-    // channel[0] gives the whole info($project) profile for that user.
-    // because here only one user now
+
+    // 📝 aggregate() always returns an array
+    // 📝 $match first — always reduces data early
+    // 📝 $lookup joins another collection — always returns array field
+    // 📝 $addFields adds computed fields without removing existing ones
+    // 📝 $project decides final shape — drop heavy arrays here
+    // 📝 channel[0] used because $match on unique usernames( can be multiple ) always gives one result
+    // ⚠️ always convert string id to ObjectId inside aggregate
+    // ⚠️ $in inside $cond is MongoDB operator — not JavaScript includes()
+    // 🔥 same subscriptions collection used twice — once as channel, once as subscriber
+    // 💡 $size counts array length — no need to manually loop and count
 
 
     if(!channel?.length){
@@ -459,7 +476,58 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
     // frontend receives clean single object — not an array
 })
 
+const getUserWatchHistory = asyncHandler(async(req, res) => {
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localfield: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localfield: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipleine: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        avatar: 1,
+                                        coverImage: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            //access first val in owner array
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
 
+    return res
+      .status(200)
+      .json(new ApiResponse(
+        200,
+        user[0].watchHistory,
+        "user watchHistory fecthed successfully")
+    )
+})
 
 
 //.....=========NOTE==========.....
@@ -487,5 +555,6 @@ export {
     getCurrentUser,
     updateAccountdetails,
     updateUseravatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserWatchHistory
 }  
