@@ -478,6 +478,8 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
 
 const getUserWatchHistory = asyncHandler(async(req, res) => {
     const user = await User.aggregate([
+        // Stage 1 req.user._id = "abnafg234"
+        // Converted to Object ID manually - because aggregate dooes not auto convert
         {
             $match: {
                 _id: new mongoose.Types.ObjectId(req.user._id)
@@ -486,16 +488,18 @@ const getUserWatchHistory = asyncHandler(async(req, res) => {
         {
             $lookup: {
                 from: "videos",
-                localfield: "watchHistory",
-                foreignField: "_id",
-                as: "watchHistory",
+                localField: "watchHistory",     // user watchHistory array of video id's
+                foreignField: "_id",            // match with video's _id with user watchHistory id's
+                as: "watchHistory",             // replace watchHistory array with full video doc's
+                // Subpipeline (always first subpipeline runs then data is attached to array)
                 pipeline: [
                     {
                         $lookup: {
                             from: "users",
-                            localfield: "owner",
+                            localField: "owner",
                             foreignField: "_id",
                             as: "owner",
+                            // Only bring these fields to owner
                             pipleine: [
                                 {
                                     $project: {
@@ -508,8 +512,9 @@ const getUserWatchHistory = asyncHandler(async(req, res) => {
                         }
                     },
                     {
+                        // flattens owner array becomes plain object
                         $addFields: {
-                            //access first val in owner array
+                            // assign first val of $owner field array to owner
                             owner: {
                                 $first: "$owner"
                             }
@@ -520,13 +525,27 @@ const getUserWatchHistory = asyncHandler(async(req, res) => {
         }
     ])
 
+    // ⭐ good to know
+
+    // 📝 MongoDB automatically optimizes pipeline sequence
+    // 📝 $match filters are split and moved as early as possible
+    // 📝 filters that depend on computed fields stay after that computation
+    // 📝 filters that depend on nothing move to very beginning
+    // 💡 you do not have to manually split $match — MongoDB does it for you
+    // 🔥 but writing $match early yourself is still better practice
+    //    — makes your intent clear and readable
+    // ⚠️  MongoDB optimizes but does not guarantee — always test with explain()
+    // use explain() to see actual execution plan
+    // db.collection.aggregate([...]).explain("executionStats")        
+    // {$skip: 10} skip the 10 doc's and passes the rest to next stage
+    // {$limit : 10 only first 10 doc's are passed to the next stage}
+
     return res
-      .status(200)
-      .json(new ApiResponse(
-        200,
-        user[0].watchHistory,
-        "user watchHistory fecthed successfully")
-    )
+    .status(200)
+    .json(new ApiResponse(
+    200,
+    user[0].watchHistory,
+    "user watchHistory fetched successfully"))
 })
 
 
