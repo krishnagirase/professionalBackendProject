@@ -167,6 +167,7 @@ const logoutUser = asyncHandler(async(req, res) => {
         {
             $unset: {
                 refreshToken: 1
+                // removes the field from document
             }
         },
         {
@@ -238,9 +239,9 @@ const changeCurrentPassword =  asyncHandler(async(req, res) => {
     }
 
     const user = await User.findById(req.user?._id)
-    const isPasswordCorrect = await User.isPasswordCorrect(oldPassword)
+    const isoldPasswordCorrect = await user.isPasswordCorrect(oldPassword)
 
-    if(!isPasswordCorrect){
+    if(!isoldPasswordCorrect){
         throw new ApiError(400, "Invalid old Password")
     }
 
@@ -261,6 +262,8 @@ const getCurrentUser  = asyncHandler(async(req, res) => {
         req.user,
         "User fetched successfully"
     ))
+    // ⚠️warning / be careful
+    // res.user is valid only jwtVerify is done and req.user is assign
 })
 
 
@@ -271,6 +274,10 @@ const updateAccountdetails = asyncHandler(async(req, res) => {
         throw new ApiError(400, "All fields are required")
     }
 
+    if(!req.user?._id){
+        throw new ApiError(400, "invalid req ")
+    }
+
     const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
@@ -279,8 +286,7 @@ const updateAccountdetails = asyncHandler(async(req, res) => {
                 email: email
             }
         },
-        {new : true}
-    ).select("-Password")
+    ).select("-password")
 
     return res
     .status(200)
@@ -328,7 +334,7 @@ const updateUseravatar = asyncHandler(async(req, res) => {
 
 
 const updateUserCoverImage = asyncHandler(async(req, res) => {
-    const coverImageLocalPath = req.file?.avatar?.[0]?.path
+    const coverImageLocalPath = req.file.path
 
     if(!coverImageLocalPath){
         throw new ApiError(400, "CoverImage file is missing")
@@ -409,9 +415,9 @@ const getUserChannelProfile = asyncHandler(async(req, res) => {
                     $size: "$subscribers"
                 }, 
                 recentSubscribers: {
-                    //filters out the subscribers subscribed after certin date.
+                    //filters out the subscribers subscribed after certain date.
                     $filter: {
-                        input: "subscribers",
+                        input: "$subscribers",
                         as: "sub",
                         cond: {$gt: ["$$sub.createdAt", new Date("2026-01-01")]}
                     }
@@ -500,7 +506,7 @@ const getUserWatchHistory = asyncHandler(async(req, res) => {
                             foreignField: "_id",
                             as: "owner",
                             // Only bring these fields to owner
-                            pipleine: [
+                            pipeline: [
                                 {
                                     $project: {
                                         fullName: 1,

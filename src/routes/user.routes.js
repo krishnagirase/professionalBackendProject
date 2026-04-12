@@ -47,12 +47,12 @@ router.route("/change-password").patch(verifyJWT,
     changeCurrentPassword
 )
 
-router.route("/current-user").get(
+router.route("/current-user").get(verifyJWT,
     getCurrentUser
 )
 
 //patch used to update, if post use then it will create the new
-router.route("/update-accountdetails").patch(
+router.route("/update-accountdetails").patch(verifyJWT,
     updateAccountdetails
 )
 
