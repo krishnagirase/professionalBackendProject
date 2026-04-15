@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser"
 
 //routes import
 import userRouter from './routes/user.routes.js'
+import videoRouter from './routes/video.route.js'
 
 const app = express();
 
@@ -21,5 +22,6 @@ app.use(cookieParser())
 
 //routes declaration
 app.use("/api/v1/users", userRouter)
+app.use("/api/v1/videos", videoRouter)
 
 export {app}
