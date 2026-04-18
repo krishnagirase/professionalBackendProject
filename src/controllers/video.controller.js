@@ -4,9 +4,9 @@ import {User} from "../models/user.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
-import {uploadOnCloudinary} from "../utils/cloudinary.js"
+import {uploadOnCloudinary, deleteFromCloudinary} from "../utils/cloudinary.js"
 import { upload } from "../middlewares/multer.middleware.js"
-
+import { v2 as cloudinary } from "cloudinary"
 
 const getAllVideos = asyncHandler(async (req, res) => {
     //TODO: get all videos based on query, sort, pagination
@@ -115,25 +115,34 @@ const getVideoById = asyncHandler(async (req, res) => {
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
     //TODO: update video details like title, description, thumbnail
+    const {videoId} = req.params
 
     if(!isValidObjectId(videoId)){
         throw new ApiError(400, "Invalid video id")
     }
 
     const { title, description } = req.body
-    const thumbnailLocalPath = req.files?.path
+    const thumbnailLocalPath = req.file?.path
 
     if(!title && !description && !thumbnailLocalPath){
         throw new ApiError(400, "Atleast one field required")
     }
 
+    const video = await Video.findById(videoId)
+
+    if(!video){
+        throw new ApiError(404, "Video not found")
+    }
+
+    if(video.owner.toString() !== req.user?._id.toString()){
+        throw new ApiError(403, "user not Allowed")
+    }
+
     let thumbnail
 
     if(thumbnailLocalPath){
-        const existingVideo = await Video.findById(videoId)
-        const oldthumbnailUrl = existingVideo?.thumbnail
+        const oldthumbnailUrl = video?.thumbnail
 
         thumbnail = await uploadOnCloudinary(thumbnailLocalPath)
 
@@ -142,26 +151,15 @@ const updateVideo = asyncHandler(async (req, res) => {
         }
 
         if (oldthumbnailUrl) {
-            const publicId = oldthumbnailUrl.split("/").pop().split(".")[0]  // extract public_id from URL
-            await cloudinary.uploader.destroy(publicId)
+            await deleteFromCloudinary(oldThumbnailUrl)
         }
+
+        video.thumbnail = thumbnail.url
     }
 
-    const video = await Video.findByIdAndUpdate(
-        videoId,
-        {
-            $set: {
-                ...(title && {title : title}),
-                ...(description && {description : description}),
-                ...(thumbnail && { thumbnail: thumbnail.url })
-            }
-        },
-        {new : true}
-    )
-
-    if(!video){
-        throw new ApiError(404, "Video not found")
-    }
+    if(title) video.title = title
+    if(description) video.description = description
+    await video.save()
 
     return res
     .status(200)
@@ -179,11 +177,22 @@ const deleteVideo = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid video id")
     }
 
-    const video = await Video.findByIdAndDelete(videoId)
+    const video = await Video.findById(videoId)
 
     if(!video){
         throw new ApiError(404, "Video not found")
     }
+
+    // //check ownership
+    if(video.owner.toString() !== req.user._id.toString()){
+        throw new ApiError(403, "user Not Allowed")
+    }
+
+    //delete the video and thumbnail from cloudinary
+    await cloudinary.uploader.destroy(video.videofile)
+    await cloudinary.uploader.destroy(video.thumbnail)
+
+    await video.deleteOne()
 
     return res
     .status(200)
