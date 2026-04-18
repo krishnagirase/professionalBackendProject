@@ -5,6 +5,8 @@ import cookieParser from "cookie-parser"
 //routes import
 import userRouter from './routes/user.routes.js'
 import videoRouter from './routes/video.route.js'
+import tweetRouter from './routes/tweet.route.js'
+import commentRouter from './routes/comment.route.js'
 
 const app = express();
 
@@ -23,5 +25,7 @@ app.use(cookieParser())
 //routes declaration
 app.use("/api/v1/users", userRouter)
 app.use("/api/v1/videos", videoRouter)
+app.use("/api/v1/tweets", tweetRouter)
+app.use("/api/v1/comments", commentRouter)
 
 export {app}

@@ -1,15 +1,15 @@
 import mongoose, { isValidObjectId } from "mongoose"
-import {Tweet, Tweet} from "../models/tweet.model.js"
+import {Tweet} from "../models/tweet.model.js"
 import {User} from "../models/user.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 
 const createTweet = asyncHandler(async (req, res) => { 
-    const {content} = req.body()
+    const {content} = req.body
 
     if(!content){
-        throw new ApiError(400, "require content field")
+        throw new ApiError(400, "required content field")
     }
 
     const user = req.user?._id
@@ -18,14 +18,14 @@ const createTweet = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Unauthorized request")
     }
 
-    const Tweet = await Tweet.create(
+    const tweet = await Tweet.create(
         {
             content,
             owner : user
         }
     )
 
-    if(!Tweet){
+    if(!tweet){
         throw new ApiError(500, "Something went wrong while creating the Tweet")
     }
 
@@ -36,13 +36,21 @@ const createTweet = asyncHandler(async (req, res) => {
 
 const getUserTweets = asyncHandler(async (req, res) => {
     const {userId} = req.params
+    const {page = 1, limit= 10} = req.query
     
     if(!isValidObjectId(userId)){
         throw new ApiError(400, "Invalid user id")
     }
-    
+
+    const options = {
+        page: parseInt(page),
+        limit: parseInt(limit)
+    }
+
     const tweets = await Tweet.find({owner : userId})
     .sort({createdAt : -1})
+    .skip((options.page - 1) * options.limit)
+    .limit(options.limit)
 
     if(tweets.length === 0){
         return res
@@ -68,11 +76,11 @@ const updateTweet = asyncHandler(async (req, res) => {
         throw new ApiError(404, "tweet not found")
     }
 
-    if(!tweet.user.equals(req.user?._id)){
-        throw new ApiError(403, "user Not allowed")
+    if(tweet.owner.toString() !== req.user?._id.toString()){
+        throw new ApiError(403, "user Not Allowed")
     }
 
-    const {content} = req.body()
+    const {content} = req.body
 
     if(!content || content.trim() === ""){
         throw new ApiError(400, "content field required")
@@ -82,7 +90,7 @@ const updateTweet = asyncHandler(async (req, res) => {
     await tweet.save()
 
     return res
-    .statu(200)
+    .status(200)
     .json(new ApiResponse(200, tweet, "tweet updated successfully"))
 })
 
@@ -99,8 +107,8 @@ const deleteTweet = asyncHandler(async (req, res) => {
         throw new ApiError(404, "tweet not found")
     }
 
-    if(!tweet.owner.equals(req.user?._id)){
-        throw new ApiError(403, "user Not allowed")
+    if(tweet.owner.toString() !== req.user?._id.toString()){
+        throw new ApiError(403, "user Not Allowed")
     }
 
     await tweet.deleteOne()
